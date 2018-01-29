@@ -1,0 +1,40 @@
+*/5 * * * * /bin/bash /root/vpnidentian.sh
+# recuerde   relizar  la  ejecucion de  backup con CRONTAB cada  5   minutos  para   la  el  inicio automatico del  script.
+#se  reliza   la  configuacion de  un archivo ip.txt y logs.txt.El primero  para almacenar  el  cambio de  ip y el  segundo  para  almacenar  los  logs
+generados  por  la  conexion pptpd y la conexiones  ssh.
+#!/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:usr/sbin:/usr/bin:/sbin:/bin:/root/
+eth0_status=$(cat /sys/class/net/eth0/operstate)
+serverip=$(ifconfig -a |grep -w "inet"| grep -v "127.0.0.1" |awk '{print $2;}')
+# Enable ethernet when cable is plugged in
+ipactual=$(cat ip.txt | tail -n1)
+if [[ "$eth0_status" = "up" ]]; then
+        if  [[ "$ipactual" = "$serverip" ]]; then
+	echo "la ip no ha cambiado"
+	echo "$serverip"
+	else
+echo "$serverip"
+# Este script despliega la fecha, hora, nombre de
+# usuario y directorio actual
+cat /var/log/messages | grep  pppd >>logs.txt
+file="ip.txt"
+echo $serverip>> $file
+echo -n "Fecha y hora:"
+date
+echo "Tu usuario es: `whoami`"
+echo -n "Tu directorio actual es: "
+pwd
+cat >/etc/pptpd.conf<<END
+option /etc/ppp/pptpd-options
+logwtmp
+localip  $serverip
+remoteip  10.10.8.0-255
+END
+chmod 777 -R  /etc/pptpd.conf
+service pptpd restart
+echo "$serverip"
+	fi
+elif [[ "$eth0_status" = "down" ]] ; then
+echo "no esta activo"
+cat /var/log/messages | grep  pppd >>logs.txt
+fi
